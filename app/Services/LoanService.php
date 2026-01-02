@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Book;
 use App\Models\Loan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class LoanService
 {
@@ -14,7 +15,9 @@ class LoanService
             $book = Book::lockForUpdate()->findOrFail($bookId);
 
             if ($book->stock < 1) {
-                throw new \Exception('Stok habis');
+                throw ValidationException::withMessages([
+                    'book_id' => 'Stok habis',
+                ]);
             }
 
             $loan = Loan::create([
@@ -22,6 +25,7 @@ class LoanService
                 'book_id' => $bookId,
                 'borrowed_at' => now(),
                 'due_at' => now()->addDays(7),
+                'returned_at' => null,
                 'status' => 'borrowed',
             ]);
 
@@ -31,19 +35,29 @@ class LoanService
         });
     }
 
-    public function return(int $loanId, int $userId): void
+    public function returnLoan(int $loanId, int $userId): void
     {
-        $loan = Loan::with('book')->findOrFail($loanId);
+        DB::transaction(function () use ($loanId, $userId) {
+            $loan = Loan::lockForUpdate()->with('book')->findOrFail($loanId);
 
-        if ($loan->user_id !== $userId) {
-            throw new \Exception('Tidak berhak');
-        }
+            if ($loan->user_id !== $userId) {
+                throw ValidationException::withMessages([
+                    'loan' => 'Tidak berhak mengembalikan loan ini',
+                ]);
+            }
 
-        $loan->update([
-            'returned_at' => now(),
-            'status' => 'returned',
-        ]);
+            if ($loan->returned_at !== null || $loan->status === 'returned') {
+                throw ValidationException::withMessages([
+                    'loan' => 'Loan sudah dikembalikan',
+                ]);
+            }
 
-        $loan->book->increment('stock');
+            $loan->update([
+                'returned_at' => now(),
+                'status' => 'returned',
+            ]);
+
+            $loan->book()->lockForUpdate()->increment('stock');
+        });
     }
 }
