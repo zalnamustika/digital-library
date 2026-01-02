@@ -7,23 +7,19 @@ use Illuminate\Support\Facades\DB;
 
 class RecommendationService
 {
-    public function recommendForUser(int $userId)
+    public function recommend(int $userId)
     {
-        $topQuery = DB::table('search_histories')
-            ->select('query', DB::raw('count(*) as c'))
+        $keyword = DB::table('search_histories')
             ->where('user_id', $userId)
+            ->select('query', DB::raw('count(*) as c'))
             ->groupBy('query')
             ->orderByDesc('c')
             ->value('query');
 
-        if (!$topQuery) {
-            return Book::query()->inRandomOrder()->limit(10)->get();
-        }
-
-        return Book::query()
-            ->where('title', 'like', "%{$topQuery}%")
-            ->orWhere('author', 'like', "%{$topQuery}%")
-            ->limit(10)
-            ->get();
+        return $keyword
+            ? Book::where('title','like',"%{$keyword}%")
+                ->orWhere('author','like',"%{$keyword}%")
+                ->get()
+            : Book::inRandomOrder()->limit(5)->get();
     }
 }

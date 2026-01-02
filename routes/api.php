@@ -3,6 +3,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\LoanController;
+use App\Http\Controllers\RecommendationController;
 
 Route::post('/login-demo', function (Request $request) {
     $request->validate(['email'=>'required|email']);
@@ -21,5 +22,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/books', [BookController::class, 'index']);
     Route::post('/loans', [LoanController::class, 'borrow']);
     Route::post('/loans/{id}/return', [LoanController::class, 'returnLoan']);
+    Route::get('/recommendations', [RecommendationController::class, 'index']);
 });
 

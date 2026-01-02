@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Book;
 use App\Models\Loan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class LoanService
 {
@@ -15,7 +14,7 @@ class LoanService
             $book = Book::lockForUpdate()->findOrFail($bookId);
 
             if ($book->stock < 1) {
-                throw ValidationException::withMessages(['book_id' => 'Stok habis']);
+                throw new \Exception('Stok habis');
             }
 
             $loan = Loan::create([
@@ -32,25 +31,19 @@ class LoanService
         });
     }
 
-    public function returnLoan(int $loanId, int $userId): void
+    public function return(int $loanId, int $userId): void
     {
-        DB::transaction(function () use ($loanId, $userId) {
-            $loan = Loan::lockForUpdate()->with('book')->findOrFail($loanId);
+        $loan = Loan::with('book')->findOrFail($loanId);
 
-            if ($loan->user_id !== $userId) {
-                throw ValidationException::withMessages(['loan' => 'Tidak berhak']);
-            }
+        if ($loan->user_id !== $userId) {
+            throw new \Exception('Tidak berhak');
+        }
 
-            if ($loan->returned_at) {
-                throw ValidationException::withMessages(['loan' => 'Sudah dikembalikan']);
-            }
+        $loan->update([
+            'returned_at' => now(),
+            'status' => 'returned',
+        ]);
 
-            $loan->update([
-                'returned_at' => now(),
-                'status' => 'returned',
-            ]);
-
-            $loan->book()->lockForUpdate()->increment('stock');
-        });
+        $loan->book->increment('stock');
     }
 }
