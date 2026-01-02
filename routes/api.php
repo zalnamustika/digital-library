@@ -1,19 +1,25 @@
 <?php
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BookController;
+use App\Http\Controllers\LoanController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
+Route::post('/login-demo', function (Request $request) {
+    $request->validate(['email'=>'required|email']);
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+    $user = \App\Models\User::firstOrCreate(
+        ['email' => $request->email],
+        ['name' => 'Demo User', 'password' => bcrypt('password')]
+    );
+
+    $token = $user->createToken('demo')->plainTextToken;
+
+    return response()->json(['token' => $token]);
 });
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/books', [BookController::class, 'index']);
+    Route::post('/loans', [LoanController::class, 'borrow']);
+    Route::post('/loans/{id}/return', [LoanController::class, 'returnLoan']);
+});
+
